@@ -1,4 +1,4 @@
-# Part2 panduan absensi
+# Part 2 panduan absensi
 
 ## Langkah ini melibatkan pembuatan Model dan Migrasi untuk menyimpan data absensi karyawan dan daftar hari libur.
 
@@ -237,6 +237,7 @@ Terakhir, jalankan migrasi untuk membuat kedua tabel baru di database Anda.
 php artisan migrate
 ```
 
+---
 
 # Langkah Selanjutnya: Fungsionalitas Absensi Karyawan
 Dengan fondasi database yang sudah siap, kita akan fokus pada sisi pengguna (karyawan) terlebih dahulu.
