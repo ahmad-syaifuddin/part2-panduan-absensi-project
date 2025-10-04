@@ -1,6 +1,6 @@
 # Part 2 panduan absensi
 
-## Langkah ini melibatkan pembuatan Model dan Migrasi untuk menyimpan data absensi karyawan
+## Langkah ini melibatkan pembuatan Logik dan view blade untuk menyimpan data absensi karyawan
 
 ## Sekarang kita akan fokus membangun fitur utama untuk karyawan: melakukan absensi. Kita akan mulai dengan merombak halaman Dashboard agar menjadi halaman utama bagi karyawan untuk melakukan absen masuk dan pulang.
 
