@@ -1,488 +1,182 @@
 # Part 2 panduan absensi
 
-## Langkah ini melibatkan pembuatan Model dan Migrasi untuk menyimpan data absensi karyawan dan daftar hari libur.
+# Langkah ini melibatkan pembuatan Model dan Migrasi untuk menyimpan data absensi karyawan dan daftar hari libur.
 
-### 🛠️ Langkah 6: Fondasi Database Absensi
-Kita akan membuat dua entitas baru: Attendance (Absensi) dan Holiday (Hari Libur).
+## Sekarang kita akan fokus membangun fitur utama untuk karyawan: melakukan absensi. Kita akan mulai dengan merombak halaman Dashboard agar menjadi halaman utama bagi karyawan untuk melakukan absen masuk dan pulang.
 
-## 6.1. Model dan Migrasi Attendance (Absensi)
-Model ini akan menyimpan setiap catatan check-in dan check-out harian dari setiap pengguna.
+# Tahap 7: Membangun Dashboard Absensi Karyawan
+Dashboard akan kita buat dinamis. Tampilannya akan berbeda tergantung role pengguna. Admin akan melihat dashboard ringkasan umum, sedangkan karyawan akan melihat panel absensi.
 
-Perintah Artisan:
-Kita buat Model dan Migrasi secara bersamaan.
+## Langkah 15: Membuat Controller untuk Dashboard
+Daripada menggunakan fungsi sederhana di file rute, kita akan membuat controller khusus untuk mengatur logika dashboard.
 
-```Bash
-php artisan make:model Attendance -m
-```
-Kode Migrasi:
-Buka file migrasi create_attendances_table (di database/migrations/) dan isi dengan skema berikut. Kita akan menggunakan Foreign Key untuk menghubungkan setiap absensi ke user_id.
-
-```PHP
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::create('attendances', function (Blueprint $table) {
-            $table->id();
-            // Foreign Key ke tabel users
-            $table->foreignId('employee_id')->constrained()->onDelete('cascade');
-
-            $table->date('date');
-            $table->time('time_in')->nullable();
-            $table->time('time_out')->nullable();
-
-            // Status Absensi: Hadir, Terlambat, Izin, Sakit, Cuti, Alpa
-            $table->enum('status', ['Hadir', 'Terlambat', 'Izin', 'Sakit', 'Cuti', 'Alpa'])->default('Alpa');
-
-            $table->text('notes')->nullable();
-
-            // Kolom tambahan untuk melacak lokasi (jika diperlukan di masa depan)
-            $table->string('location_in')->nullable();
-            $table->string('location_out')->nullable();
-
-            $table->timestamps();
-
-            // Memastikan satu user hanya bisa memiliki satu record absensi per hari
-            $table->unique(['user_id', 'date']);
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('attendances');
-    }
-};
-```
-
-Kode Model:
-Buka app/Models/Attendance.php dan definisikan properti fillable serta relasi ke Model User.
-
-```PHP
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
-class Attendance extends Model
-{
-    use HasFactory;
-
-    protected $fillable = [
-        'user_id',
-        'date',
-        'time_in',
-        'time_out',
-        'status',
-        'notes',
-        'location_in',
-        'location_out',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
-        'time_in' => 'datetime',
-        'time_out' => 'datetime',
-    ];
-
-    /**
-     * Relasi ke model User.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-}
-```
-
-## 6.2. Model dan Migrasi Holiday (Hari Libur)
-Model ini akan digunakan untuk mencatat hari libur perusahaan atau nasional, yang nantinya akan memengaruhi perhitungan absensi.
-
-Perintah Artisan:
+Buat DashboardController:
 
 ```Bash
-php artisan make:model Holiday -m
+php artisan make:controller DashboardController
 ```
-Kode Migrasi:
-Buka file migrasi create_holidays_table dan isi dengan skema berikut:
-
-```PHP
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::create('holidays', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->date('date');
-            $table->text('description')->nullable();
-            $table->timestamps();
-
-            $table->unique('date'); // Hari libur hanya bisa satu kali pada tanggal tertentu
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('holidays');
-    }
-};
-```
-Kode Model:
-Buka app/Models/Holiday.php dan definisikan properti fillable.
-
-```PHP
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Holiday extends Model
-{
-    use HasFactory;
-
-    protected $fillable = [
-        'name',
-        'date',
-        'description',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
-    ];
-}
-```
-
-## 6.3. Relasi Balik ke Model User
-Jangan lupa untuk menambahkan relasi ke Model Attendance di dalam Model User (app/Models/User.php).
-
-Tambahkan metode ini ke dalam App\Models\User.php:
-
-```PHP
-<?php
-
-namespace App\Models;
-
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-
-class User extends Authenticatable
-{
-    use HasApiTokens, HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'phone',
-        'gender',
-    ];
-
-
-    /**
-     * Relasi ke model Attendance.
-     */
-    public function attendances(): HasMany
-    {
-        return $this->hasMany(Attendance::class);
-    }
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
-}
-```
-## 6.4. Jalankan Migrasi
-Terakhir, jalankan migrasi untuk membuat kedua tabel baru di database Anda.
-
-```Bash
-php artisan migrate
-```
-
----
-
-# Langkah Selanjutnya: Fungsionalitas Absensi Karyawan
-Dengan fondasi database yang sudah siap, kita akan fokus pada sisi pengguna (karyawan) terlebih dahulu.
-
-Langkah berikutnya: 
-1. Membuat Controller dan Rute untuk Check-in dan Check-out sederhana. Ini akan mencakup:
-
-2. Membuat EmployeeController
-
-3. Menambahkan Rute untuk checkIn dan checkOut.
-
-4. Membuat View Dashboard Karyawan yang menampilkan tombol absensi.
-
-
-## 💻 Langkah 7: Fungsionalitas Absensi Karyawan
-Langkah ini akan melibatkan pembuatan Controller baru untuk karyawan dan penambahan logika sederhana untuk absensi.
-
-### 7.1. Membuat Controller Karyawan
-Kita akan menggunakan Controller yang sederhana bernama EmployeeController untuk menangani aksi absensi yang spesifik.
-
-Perintah Artisan:
-
-```Bash
-php artisan make:controller EmployeeController
-```
-Kode Controller:
-Buka app/Http/Controllers/EmployeeController.php dan tambahkan logika untuk menampilkan dashboard karyawan, checkIn, dan checkOut. Kita akan menerapkan logika pengecekan status absensi harian di sini.
+Isi Logika di DashboardController:
+Buka app/Http/Controllers/DashboardController.php dan isi dengan kode berikut. Logika ini akan memeriksa role pengguna dan menampilkan view yang sesuai.
 
 ```PHP
 <?php
 
 namespace App\Http\Controllers;
 
-use App\Models\Attendance;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class EmployeeController extends Controller
+class DashboardController extends Controller
 {
-    /**
-     * Menampilkan dashboard karyawan dan status absensi hari ini.
-     */
-    public function dashboard()
+    public function index()
     {
+        // Ambil pengguna yang sedang login
         $user = Auth::user();
-        $today = Carbon::today()->toDateString();
 
-        // Cek status absensi hari ini
-        $attendanceToday = Attendance::where('user_id', $user->id)
-                                    ->whereDate('date', $today)
-                                    ->first();
-
-        return view('employee.dashboard', compact('user', 'attendanceToday'));
-    }
-
-    /**
-     * Proses Check-in Karyawan.
-     */
-    public function checkIn()
-    {
-        $user = Auth::user();
-        $today = Carbon::today()->toDateString();
-        $currentTime = Carbon::now();
-
-        // 1. Cek duplikasi
-        if (Attendance::where('user_id', $user->id)->whereDate('date', $today)->exists()) {
-            return redirect()->back()->with('error', 'Anda sudah melakukan Check-in hari ini.');
+        // Cek role pengguna
+        if ($user->role === 'admin') {
+            // Jika admin, tampilkan dashboard admin
+            return view('dashboard-admin'); 
+        } elseif ($user->role === 'karyawan') {
+            // Jika karyawan, tampilkan dashboard karyawan
+            // Nanti kita akan tambahkan logika untuk mengambil data absensi di sini
+            return view('dashboard-karyawan');
         }
 
-        // 2. Logika Sederhana Status (Asumsi jam masuk standar 08:00)
-        $standardCheckInTime = Carbon::parse($today . ' 08:00:00');
-
-        $status = $currentTime->greaterThan($standardCheckInTime) ? 'Terlambat' : 'Hadir';
-        $notes = $status === 'Terlambat' ? 'Check-in terlambat dari jam 08:00.' : null;
-
-        // 3. Simpan Absensi
-        Attendance::create([
-            'user_id' => $user->id,
-            'date' => $today,
-            'time_in' => $currentTime,
-            'status' => $status,
-            'notes' => $notes,
-        ]);
-
-        return redirect()->back()->with('success', 'Check-in berhasil pada pukul ' . $currentTime->format('H:i:s'));
-    }
-
-    /**
-     * Proses Check-out Karyawan.
-     */
-    public function checkOut()
-    {
-        $user = Auth::user();
-        $today = Carbon::today()->toDateString();
-        $currentTime = Carbon::now();
-
-        // 1. Cek apakah sudah Check-in
-        $attendance = Attendance::where('user_id', $user->id)->whereDate('date', $today)->first();
-
-        if (!$attendance) {
-            return redirect()->back()->with('error', 'Anda harus Check-in terlebih dahulu!');
-        }
-
-        // 2. Cek duplikasi Check-out
-        if ($attendance->time_out) {
-            return redirect()->back()->with('error', 'Anda sudah melakukan Check-out hari ini.');
-        }
-
-        // 3. Update Waktu Pulang
-        $attendance->time_out = $currentTime;
-        $attendance->save();
-
-        return redirect()->back()->with('success', 'Check-out berhasil pada pukul ' . $currentTime->format('H:i:s'));
+        // Fallback jika role tidak terdefinisi (seharusnya tidak terjadi)
+        return redirect('/');
     }
 }
 ```
-## 7.2. Rute Absensi Karyawan
-Kita akan merevisi rute dashboard bawaan Breeze dan menambahkan rute untuk checkIn dan checkOut.
 
-Buka file routes/web.php dan ubah rute dashboard seperti berikut:
+## Langkah 16: Menyesuaikan Rute Dashboard
+Sekarang, kita ubah rute /dashboard di routes/web.php agar menggunakan DashboardController yang baru kita buat.
+
+Buka routes/web.php.
+
+Cari dan ubah rute /dashboard.
+
+Ubah baris ini:
+```PHP
+// use App\Http\Controllers\DashboardController; // <-- Jangan lupa tambahkan ini di atas
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+```
+Menjadi seperti ini:
 
 ```PHP
-use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController; // <-- Tambahkan ini di atas
 
-/*
-|--------------------------------------------------------------------------
-| Rute Karyawan (Pengganti Dashboard default)
-|--------------------------------------------------------------------------
-| Menggunakan EmployeeController@dashboard jika role='karyawan' atau AdminController@dashboard jika role='admin'
-*/
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])->name('dashboard');
+```    
+## Langkah 17: Membuat View untuk Masing-Masing Dashboard
+Kita perlu membuat dua file view baru yang dipanggil oleh DashboardController.
 
-Route::middleware('auth')->group(function () {
-    // Rute Dashboard Utama (akan diarahkan berdasarkan Role)
-    Route::get('/dashboard', [App\Http\Controllers\EmployeeController::class, 'dashboard'])->name('dashboard');
+Buat View Admin (dashboard-admin.blade.php):
 
-    // Rute Khusus Aksi Absensi (hanya untuk Karyawan)
-    Route::post('/checkin', [App\Http\Controllers\EmployeeController::class, 'checkIn'])->name('employee.checkin');
-    Route::post('/checkout', [App\Http\Controllers\EmployeeController::class, 'checkOut'])->name('employee.checkout');
+Ubah nama file lama resources/views/dashboard.blade.php menjadi dashboard-admin.blade.php.
 
-    // Rute Profile (bawaan Breeze)
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-```
+Kita bisa biarkan isinya seperti bawaan Breeze untuk saat ini. Nantinya, halaman ini bisa diisi dengan ringkasan data absensi, jumlah karyawan aktif, dll.
 
-// ... (Rute Admin di bawahnya tetap) ...
-(Catatan: Meskipun Controller bernama EmployeeController, kita gunakan untuk dashboard utama agar karyawan langsung melihat tombol absensi. Nanti kita bisa refactor untuk admin menggunakan AdminController)
+Buat View Karyawan (dashboard-karyawan.blade.php):
 
-## 7.3. View Dashboard Karyawan
-Kita perlu membuat tampilan dashboard yang akan menampilkan status absensi hari ini dan tombol untuk Check-in atau Check-out.
+Buat file baru di resources/views/ bernama dashboard-karyawan.blade.php.
 
-Buat folder baru employee di dalam resources/views.
-
-Buat file baru di resources/views/employee/dashboard.blade.php.
-
-📄 File: resources/views/employee/dashboard.blade.php
+Isi dengan kode berikut. Ini adalah tampilan inti untuk absensi.
 
 ```HTML
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Dashboard Absensi Karyawan') }}
+            {{ __('Absensi Harian') }}
         </h2>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
-                <h3 class="text-2xl font-bold mb-4 text-gray-800">Selamat Datang, {{ $user->name }}!</h3>
-                <p class="text-gray-600 mb-6">Tanggal Hari Ini: **{{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}**</p>
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
 
-                {{-- Status Pesan (Success/Error) --}}
-                @if (session('success'))
-                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-                        <p class="font-bold">Sukses!</p>
-                        <p>{{ session('success') }}</p>
-                    </div>
-                @endif
-                @if (session('error'))
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                        <p class="font-bold">Error!</p>
-                        <p>{{ session('error') }}</p>
-                    </div>
-                @endif
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {{-- Status Card --}}
-                    <div class="md:col-span-2 bg-gray-50 border-2 rounded-lg p-6 shadow-md">
-                        <h4 class="text-xl font-semibold mb-3">Status Absensi Hari Ini:</h4>
-                        
-                        @if ($attendanceToday)
-                            <p class="text-3xl font-bold mb-4 
-                                @if ($attendanceToday->status === 'Terlambat') text-red-600 
-                                @elseif ($attendanceToday->status === 'Hadir') text-green-600 
-                                @else text-blue-600 @endif">
-                                {{ $attendanceToday->status }}
-                            </p>
-                            <p class="text-lg">Jam Masuk: **{{ $attendanceToday->time_in ? \Carbon\Carbon::parse($attendanceToday->time_in)->format('H:i:s') : 'Belum Check-in' }}**</p>
-                            <p class="text-lg">Jam Pulang: **{{ $attendanceToday->time_out ? \Carbon\Carbon::parse($attendanceToday->time_out)->format('H:i:s') : 'Belum Check-out' }}**</p>
-                            
-                            {{-- Tombol Check-out (hanya tampil jika sudah check-in dan belum check-out) --}}
-                            @if ($attendanceToday->time_in && !$attendanceToday->time_out)
-                                <form action="{{ route('employee.checkout') }}" method="POST" class="mt-6">
-                                    @csrf
-                                    <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
-                                        <i class="fas fa-sign-out-alt mr-2"></i>
-                                        CHECK OUT SEKARANG
-                                    </button>
-                                </form>
-                            @endif
+                    {{-- Akan kita tambahkan nanti setelah membuat logika absen --}}
 
-                            @if ($attendanceToday->time_out)
-                                <p class="mt-4 text-green-700 font-semibold">Absensi hari ini Selesai!</p>
-                            @endif
+                    <div class="text-center">
+                        <h3 class="text-lg font-medium text-gray-900">
+                            {{ \Carbon\Carbon::now()->isoFormat('dddd, D MMMM Y') }}
+                        </h3>
 
-                        @else
-                            <p class="text-3xl font-bold text-yellow-600 mb-4">Belum Absen</p>
-                            
-                            {{-- Tombol Check-in (hanya tampil jika belum ada record hari ini) --}}
-                            <form action="{{ route('employee.checkin') }}" method="POST" class="mt-6">
+                        <div id="jam-digital" class="text-5xl font-bold text-gray-800 my-4">
+                            00:00:00
+                        </div>
+
+                        <div class="mt-6 space-x-4">
+                            {{-- Logika tombol akan ditambahkan pada langkah selanjutnya --}}
+
+                            <form method="POST" action="#" class="inline-block">
                                 @csrf
-                                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
-                                    <i class="fas fa-sign-in-alt mr-2"></i>
-                                    CHECK IN SEKARANG
+                                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                                    <i class="fas fa-fingerprint mr-2"></i> Absen Masuk
                                 </button>
                             </form>
-                        @endif
+
+                            <button disabled class="bg-gray-400 cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                <i class="fas fa-sign-out-alt mr-2"></i> Absen Pulang
+                            </button>
+                        </div>
+
                     </div>
-                    
-                    {{-- Informasi User --}}
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 shadow-md">
-                        <h4 class="text-xl font-semibold mb-3 text-blue-800">Informasi Saya</h4>
-                        <div class="space-y-2 text-gray-700">
-                            <p><strong>Peran:</strong> {{ ucfirst($user->role) }}</p>
-                            <p><strong>Email:</strong> {{ $user->email }}</p>
-                            <p><strong>No. HP:</strong> {{ $user->phone ?? '-' }}</p>
-                            <p><strong>Jenis Kelamin:</strong> {{ $user->gender ?? '-' }}</p>
+
+                    <div class="mt-10 border-t pt-6">
+                        <h4 class="text-md font-semibold mb-4">Ringkasan Hari Ini:</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-blue-100 p-4 rounded-lg">
+                                <p class="text-sm text-blue-700">Jam Masuk</p>
+                                <p class="text-lg font-bold text-blue-900">--:--</p>
+                            </div>
+                            <div class="bg-purple-100 p-4 rounded-lg">
+                                <p class="text-sm text-purple-700">Jam Pulang</p>
+                                <p class="text-lg font-bold text-purple-900">--:--</p>
+                            </div>
+                            <div class="bg-yellow-100 p-4 rounded-lg">
+                                <p class="text-sm text-yellow-700">Status</p>
+                                <p class="text-lg font-bold text-yellow-900">Belum Absen</p>
+                            </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('jam-digital').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock(); // initial call
+    </script>
+    @endpush
 </x-app-layout>
 ```
+Tambahkan @stack('scripts') ke Layout Utama:
+Agar Javascript untuk jam digital bisa berjalan, kita perlu menambahkan "slot" untuk script di layout utama. Buka resources/views/layouts/app.blade.php dan tambahkan @stack('scripts') tepat sebelum tag penutup </body>.
+
+```HTML
+</main>
+    </div>
+
+    @stack('scripts') </body>
+</html>
+```
+Uji Coba
+Login sebagai admin (admin@gmail.com). Anda seharusnya melihat halaman dashboard default Breeze yang lama (sekarang dari dashboard-admin.blade.php). Navigasi untuk admin akan muncul.
+
+Logout, lalu login sebagai karyawan (karyawan@gmail.com). Anda akan disambut oleh halaman dashboard absensi yang baru, lengkap dengan jam digital yang berjalan. Navigasi untuk karyawan akan muncul.
