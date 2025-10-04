@@ -267,7 +267,6 @@ Kode Controller:
 Buka app/Http/Controllers/EmployeeController.php dan tambahkan logika untuk menampilkan dashboard karyawan, checkIn, dan checkOut. Kita akan menerapkan logika pengecekan status absensi harian di sini.
 
 ```PHP
-
 <?php
 
 namespace App\Http\Controllers;
