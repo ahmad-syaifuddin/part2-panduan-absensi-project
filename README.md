@@ -674,3 +674,6 @@ Klik link tersebut.
 
 Anda akan diarahkan ke halaman /attendance yang menampilkan tabel berisi catatan absensi yang sudah Anda buat sebelumnya.
 ---
+
+### Next lanjut Part 3
+Untuk informasi lebih lanjut, kunjungi [Panduannya](https://github.com/ahmad-syaifuddin/part3-panduan-absensi-project.git).
