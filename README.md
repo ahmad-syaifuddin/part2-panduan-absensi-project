@@ -476,3 +476,201 @@ Klik tombol "Absen Masuk". Halaman akan me-refresh, pesan sukses akan muncul, ri
 Tunggu beberapa saat, lalu klik "Absen Pulang". Halaman akan me-refresh lagi, pesan sukses muncul, ringkasan jam pulang terisi, dan tombol akan hilang digantikan pesan bahwa absensi telah selesai.
 
 Coba refresh halaman, statusnya akan tetap sama.
+
+---
+
+# Setelah karyawan bisa melakukan absensi, tentu mereka perlu melihat rekap atau histori dari absensi yang telah mereka lakukan. Sekarang kita akan membuat halaman "Riwayat Absensi".
+
+## Tahap 9: Membuat Halaman Riwayat Absensi
+Halaman ini akan berisi tabel yang menampilkan semua catatan absensi milik karyawan yang sedang login, diurutkan dari yang paling baru.
+
+### Langkah 23: Logika Menampilkan Riwayat di Controller
+Kita akan menambahkan method baru bernama index ke dalam AttendanceController untuk mengambil data riwayat absensi.
+
+Buka app/Http/Controllers/AttendanceController.php.
+
+Tambahkan method index berikut ini:
+
+```PHP
+// app/Http/Controllers/AttendanceController.php
+
+// ... (use statements) ...
+
+class AttendanceController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        $user = Auth::user();
+
+        // Pastikan user adalah karyawan dan memiliki data employee
+        if ($user->role !== 'karyawan' || !$user->employee) {
+            // Redirect atau tampilkan error jika bukan karyawan
+            return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+        }
+
+        // Ambil semua data absensi milik karyawan tersebut,
+        // urutkan dari yang terbaru, dan paginasi (15 data per halaman)
+        $attendances = Attendance::where('employee_id', $user->employee->id)
+                                ->latest() // ini sama dengan orderBy('created_at', 'desc')
+                                ->paginate(15);
+
+        // Kirim data ke view
+        return view('attendance.index', compact('attendances'));
+    }
+
+    // ... (method clockIn dan clockOut) ...
+}
+```
+### Langkah 24: Membuat Rute untuk Halaman Riwayat
+Sekarang, kita buat "alamat" atau rute untuk mengakses method index yang baru saja kita buat.
+
+Buka file routes/web.php.
+
+Tambahkan rute GET berikut di dalam grup middleware('auth').
+
+```PHP
+// routes/web.php
+
+// ...
+
+Route::middleware('auth')->group(function () {
+    // ... (rute profile) ...
+
+    // RUTE UNTUK ABSENSI
+    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index'); // <-- TAMBAHKAN INI
+    Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
+    Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+});
+
+// ...
+```
+### Langkah 25: Membuat View Riwayat Absensi
+Saatnya membuat tampilan untuk halaman riwayat.
+
+Buat folder baru bernama attendance di dalam resources/views.
+
+Di dalam folder attendance tersebut, buat file baru bernama index.blade.php.
+
+Isi file index.blade.php tersebut dengan kode berikut:
+
+```blade
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Riwayat Absensi Saya') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-12">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Masuk</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Pulang</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @forelse ($attendances as $attendance)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ $loop->iteration + $attendances->firstItem() - 1 }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {{ \Carbon\Carbon::parse($attendance->date)->isoFormat('dddd, D MMMM Y') }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_in }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_out ?? 'Belum Absen' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @if ($attendance->status == 'Hadir')
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    Hadir
+                                                </span>
+                                            @elseif ($attendance->status == 'Terlambat')
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    Terlambat
+                                                </span>
+                                            @elseif ($attendance->status == 'Izin')
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                    Izin
+                                                </span>
+                                            @else
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                    Alpa
+                                                </span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                            Data riwayat absensi tidak ditemukan.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4">
+                        {{ $attendances->links() }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>
+```
+### Langkah 26: Mengaktifkan Link di Navigasi
+Langkah terakhir adalah "menyalakan" link "Riwayat Absensi" di menu navigasi yang sebelumnya sudah kita siapkan.
+
+Buka file resources/views/layouts/navigation.blade.php.
+
+Cari bagian menu untuk karyawan dan hapus komentar serta ganti href-nya.
+
+Ubah ini (di bagian desktop):
+
+```HTML
+<x-nav-link :href="'#'" {{-- :href="route('attendance.index')" :active="request()->routeIs('attendance.*')" --}}>
+    {{ __('Riwayat Absensi') }}
+</x-nav-link>
+```
+Menjadi:
+
+```HTML
+<x-nav-link :href="route('attendance.index')" :active="request()->routeIs('attendance.*')">
+    {{ __('Riwayat Absensi') }}
+</x-nav-link>
+```
+Dan ubah juga ini (di bagian mobile/responsif):
+
+```HTML
+<x-responsive-nav-link :href="'#'" {{-- :href="route('attendance.index')" :active="request()->routeIs('attendance.*')" --}}>
+    {{ __('Riwayat Absensi') }}
+</x-responsive-nav-link>
+```
+Menjadi:
+
+```HTML
+<x-responsive-nav-link :href="route('attendance.index')" :active="request()->routeIs('attendance.*')">
+    {{ __('Riwayat Absensi') }}
+</x-responsive-nav-link>
+```
+## Uji Coba
+Login sebagai karyawan.
+
+Di menu navigasi atas, link "Riwayat Absensi" sekarang sudah bisa diklik.
+
+Klik link tersebut.
+
+Anda akan diarahkan ke halaman /attendance yang menampilkan tabel berisi catatan absensi yang sudah Anda buat sebelumnya.
+---
