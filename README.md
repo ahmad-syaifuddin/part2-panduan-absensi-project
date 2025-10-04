@@ -1,24 +1,38 @@
-# Part 2 panduan absensi
+# 📋 Part 2 - Panduan Absensi Karyawan
 
-## Langkah ini melibatkan pembuatan Logik dan view blade untuk menyimpan data absensi karyawan
+> **Fokus Bagian Ini:** Membangun logik dan view blade untuk menyimpan data absensi karyawan
 
-## Sekarang kita akan fokus membangun fitur utama untuk karyawan: melakukan absensi. Kita akan mulai dengan merombak halaman Dashboard agar menjadi halaman utama bagi karyawan untuk melakukan absen masuk dan pulang.
+---
 
-# Tahap 7: Membangun Dashboard Absensi Karyawan
-Dashboard akan kita buat dinamis. Tampilannya akan berbeda tergantung role pengguna. Admin akan melihat dashboard ringkasan umum, sedangkan karyawan akan melihat panel absensi.
+## 🎯 Gambaran Umum
 
-## Langkah 15: Membuat Controller untuk Dashboard
+Sekarang kita akan fokus membangun fitur utama untuk karyawan: **melakukan absensi**. Kita akan mulai dengan merombak halaman Dashboard agar menjadi halaman utama bagi karyawan untuk melakukan absen masuk dan pulang.
+
+---
+
+# 📊 Tahap 7: Membangun Dashboard Absensi Karyawan
+
+Dashboard akan kita buat **dinamis**. Tampilannya akan berbeda tergantung role pengguna:
+- **Admin** → melihat dashboard ringkasan umum
+- **Karyawan** → melihat panel absensi
+
+---
+
+## 🔧 Langkah 15: Membuat Controller untuk Dashboard
+
 Daripada menggunakan fungsi sederhana di file rute, kita akan membuat controller khusus untuk mengatur logika dashboard.
 
-Buat DashboardController:
+### Buat DashboardController:
 
-```Bash
+```bash
 php artisan make:controller DashboardController
 ```
-Isi Logika di DashboardController:
-Buka app/Http/Controllers/DashboardController.php dan isi dengan kode berikut. Logika ini akan memeriksa role pengguna dan menampilkan view yang sesuai.
 
-```PHP
+### Isi Logika di DashboardController:
+
+Buka `app/Http/Controllers/DashboardController.php` dan isi dengan kode berikut. Logika ini akan memeriksa role pengguna dan menampilkan view yang sesuai.
+
+```php
 <?php
 
 namespace App\Http\Controllers;
@@ -49,45 +63,54 @@ class DashboardController extends Controller
 }
 ```
 
-## Langkah 16: Menyesuaikan Rute Dashboard
-Sekarang, kita ubah rute /dashboard di routes/web.php agar menggunakan DashboardController yang baru kita buat.
+---
 
-Buka routes/web.php.
+## 🛣️ Langkah 16: Menyesuaikan Rute Dashboard
 
-Cari dan ubah rute /dashboard.
+Sekarang, kita ubah rute `/dashboard` di `routes/web.php` agar menggunakan `DashboardController` yang baru kita buat.
 
-Ubah baris ini:
-```PHP
+### Langkah-langkahnya:
+
+1. Buka `routes/web.php`
+2. Cari dan ubah rute `/dashboard`
+
+**Ubah dari ini:**
+
+```php
 // use App\Http\Controllers\DashboardController; // <-- Jangan lupa tambahkan ini di atas
 
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 ```
-Menjadi seperti ini:
 
-```PHP
+**Menjadi seperti ini:**
+
+```php
 use App\Http\Controllers\DashboardController; // <-- Tambahkan ini di atas
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])->name('dashboard');
-```    
-## Langkah 17: Membuat View untuk Masing-Masing Dashboard
-Kita perlu membuat dua file view baru yang dipanggil oleh DashboardController.
+```
 
-Buat View Admin (dashboard-admin.blade.php):
+---
 
-Ubah nama file lama resources/views/dashboard.blade.php menjadi dashboard-admin.blade.php.
+## 📄 Langkah 17: Membuat View untuk Masing-Masing Dashboard
 
-Kita bisa biarkan isinya seperti bawaan Breeze untuk saat ini. Nantinya, halaman ini bisa diisi dengan ringkasan data absensi, jumlah karyawan aktif, dll.
+Kita perlu membuat dua file view baru yang dipanggil oleh `DashboardController`.
 
-Buat View Karyawan (dashboard-karyawan.blade.php):
+### 1️⃣ Buat View Admin (`dashboard-admin.blade.php`)
 
-Buat file baru di resources/views/ bernama dashboard-karyawan.blade.php.
+- Ubah nama file lama `resources/views/dashboard.blade.php` menjadi `dashboard-admin.blade.php`
+- Kita bisa biarkan isinya seperti bawaan Breeze untuk saat ini
+- Nantinya, halaman ini bisa diisi dengan ringkasan data absensi, jumlah karyawan aktif, dll.
 
-Isi dengan kode berikut. Ini adalah tampilan inti untuk absensi.
+### 2️⃣ Buat View Karyawan (`dashboard-karyawan.blade.php`)
 
-```HTML
+- Buat file baru di `resources/views/` bernama `dashboard-karyawan.blade.php`
+- Isi dengan kode berikut. Ini adalah tampilan inti untuk absensi:
+
+```html
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -166,43 +189,71 @@ Isi dengan kode berikut. Ini adalah tampilan inti untuk absensi.
     @endpush
 </x-app-layout>
 ```
-Tambahkan @stack('scripts') ke Layout Utama:
-Agar Javascript untuk jam digital bisa berjalan, kita perlu menambahkan "slot" untuk script di layout utama. Buka resources/views/layouts/app.blade.php dan tambahkan @stack('scripts') tepat sebelum tag penutup </body>.
 
-```HTML
-</main>
+### 3️⃣ Tambahkan `@stack('scripts')` ke Layout Utama
+
+Agar Javascript untuk jam digital bisa berjalan, kita perlu menambahkan "slot" untuk script di layout utama.
+
+- Buka `resources/views/layouts/app.blade.php`
+- Tambahkan `@stack('scripts')` tepat sebelum tag penutup `</body>`
+
+```html
+        </main>
     </div>
 
-    @stack('scripts') </body>
+    @stack('scripts')
+</body>
 </html>
 ```
-Uji Coba
-Login sebagai admin (admin@gmail.com). Anda seharusnya melihat halaman dashboard default Breeze yang lama (sekarang dari dashboard-admin.blade.php). Navigasi untuk admin akan muncul.
-
-Logout, lalu login sebagai karyawan (karyawan@gmail.com). Anda akan disambut oleh halaman dashboard absensi yang baru, lengkap dengan jam digital yang berjalan. Navigasi untuk karyawan akan muncul.
 
 ---
 
-# Sekarang saatnya menghidupkan tombol-tombol absensi itu dengan membuat "mesin" di belakangnya.
-###Ini melibatkan pembuatan Controller baru untuk menangani semua logika absensi dan Rute sebagai alamatnya.
+## ✅ Uji Coba
 
-## Tahap 8: Membuat Logika Absensi (Controller & Rute)
-Langkah 18: Membuat AttendanceController
-Controller ini akan menjadi pusat komando untuk semua aksi terkait absensi, seperti absen masuk dan absen pulang.
+1. **Login sebagai admin** (`admin@gmail.com`)
+   - Anda seharusnya melihat halaman dashboard default Breeze yang lama (sekarang dari `dashboard-admin.blade.php`)
+   - Navigasi untuk admin akan muncul
+
+2. **Logout, lalu login sebagai karyawan** (`karyawan@gmail.com`)
+   - Anda akan disambut oleh halaman dashboard absensi yang baru
+   - Lengkap dengan jam digital yang berjalan
+   - Navigasi untuk karyawan akan muncul
+
+---
+
+---
+
+# ⚙️ Tahap 8: Membuat Logika Absensi (Controller & Rute)
+
+> Sekarang saatnya menghidupkan tombol-tombol absensi itu dengan membuat "mesin" di belakangnya. Ini melibatkan pembuatan Controller baru untuk menangani semua logika absensi dan Rute sebagai alamatnya.
+
+---
+
+## 🎮 Langkah 18: Membuat AttendanceController
+
+Controller ini akan menjadi **pusat komando** untuk semua aksi terkait absensi, seperti absen masuk dan absen pulang.
 
 Jalankan perintah ini di terminal:
 
-```Bash
+```bash
 php artisan make:controller AttendanceController
 ```
-### Langkah 19: Membuat Rute untuk Aksi Absensi
-Kita perlu dua alamat baru: satu untuk mengirim data "Absen Masuk" dan satu lagi untuk "Absen Pulang".
 
-Buka file routes/web.php.
+---
 
-Tambahkan rute berikut di dalam grup middleware('auth'). Anda bisa meletakkannya bersama rute profil.
+## 🛣️ Langkah 19: Membuat Rute untuk Aksi Absensi
 
-```PHP
+Kita perlu dua alamat baru:
+- Satu untuk mengirim data **"Absen Masuk"**
+- Satu lagi untuk **"Absen Pulang"**
+
+### Langkah-langkahnya:
+
+1. Buka file `routes/web.php`
+2. Tambahkan rute berikut di dalam grup `middleware('auth')`
+3. Anda bisa meletakkannya bersama rute profil
+
+```php
 // routes/web.php
 
 use App\Http\Controllers\AttendanceController; // <-- Jangan lupa tambahkan ini
@@ -220,12 +271,16 @@ Route::middleware('auth')->group(function () {
 });
 // ... Rute admin ...
 ```
-### Langkah 20: Implementasi Logika Absen Masuk (clockIn)
-Sekarang kita isi AttendanceController dengan logika untuk clockIn.
 
-Buka app/Http/Controllers/AttendanceController.php dan isi dengan kode berikut:
+---
 
-```PHP
+## 🔵 Langkah 20: Implementasi Logika Absen Masuk (clockIn)
+
+Sekarang kita isi `AttendanceController` dengan logika untuk `clockIn`.
+
+Buka `app/Http/Controllers/AttendanceController.php` dan isi dengan kode berikut:
+
+```php
 <?php
 
 namespace App\Http\Controllers;
@@ -286,10 +341,14 @@ class AttendanceController extends Controller
     }
 }
 ```
-### Langkah 21: Implementasi Logika Absen Pulang (clockOut)
-Tambahkan method clockOut di dalam AttendanceController.php.
 
-```PHP
+---
+
+## 🔴 Langkah 21: Implementasi Logika Absen Pulang (clockOut)
+
+Tambahkan method `clockOut` di dalam `AttendanceController.php`.
+
+```php
 // app/Http/Controllers/AttendanceController.php
 
 // ... (method clockIn) ...
@@ -332,13 +391,18 @@ public function clockOut(Request $request)
     return redirect()->route('dashboard')->with('success', 'Berhasil melakukan absen pulang. Selamat beristirahat!');
 }
 ```
-### Langkah 22: Menghubungkan Data dan Logika ke Dashboard
-Terakhir, kita sempurnakan DashboardController dan view dashboard-karyawan agar bisa menampilkan data absensi hari ini dan tombol yang dinamis.
 
-Update DashboardController:
-Buka app/Http/Controllers/DashboardController.php dan modifikasi method index untuk mengambil data absensi.
+---
 
-```PHP
+## 🔗 Langkah 22: Menghubungkan Data dan Logika ke Dashboard
+
+Terakhir, kita sempurnakan `DashboardController` dan view `dashboard-karyawan` agar bisa menampilkan data absensi hari ini dan tombol yang dinamis.
+
+### 1️⃣ Update DashboardController
+
+Buka `app/Http/Controllers/DashboardController.php` dan modifikasi method `index` untuk mengambil data absensi.
+
+```php
 // app/Http/Controllers/DashboardController.php
 use App\Models\Attendance; // <-- Tambahkan ini
 use Carbon\Carbon;          // <-- Tambahkan ini
@@ -366,8 +430,10 @@ public function index()
     return view('dashboard-karyawan');
 }
 ```
-Update View dashboard-karyawan.blade.php:
-Ganti seluruh isi resources/views/dashboard-karyawan.blade.php dengan kode yang sudah dinamis berikut:
+
+### 2️⃣ Update View dashboard-karyawan.blade.php
+
+Ganti seluruh isi `resources/views/dashboard-karyawan.blade.php` dengan kode yang sudah dinamis berikut:
 
 ```blade
 <x-app-layout>
@@ -464,216 +530,29 @@ Ganti seluruh isi resources/views/dashboard-karyawan.blade.php dengan kode yang 
     @endpush
 </x-app-layout>
 ```
-### Uji Coba
-Ini adalah momen pembuktian!
-
-Pastikan Anda login sebagai karyawan.
-
-Buka halaman Dashboard. Anda akan melihat tombol "Absen Masuk".
-
-Klik tombol "Absen Masuk". Halaman akan me-refresh, pesan sukses akan muncul, ringkasan di bawah akan terisi, dan tombol akan berubah menjadi "Absen Pulang".
-
-Tunggu beberapa saat, lalu klik "Absen Pulang". Halaman akan me-refresh lagi, pesan sukses muncul, ringkasan jam pulang terisi, dan tombol akan hilang digantikan pesan bahwa absensi telah selesai.
-
-Coba refresh halaman, statusnya akan tetap sama.
 
 ---
 
-# Setelah karyawan bisa melakukan absensi, tentu mereka perlu melihat rekap atau histori dari absensi yang telah mereka lakukan. Sekarang kita akan membuat halaman "Riwayat Absensi".
+## ✅ Uji Coba
 
-## Tahap 9: Membuat Halaman Riwayat Absensi
-Halaman ini akan berisi tabel yang menampilkan semua catatan absensi milik karyawan yang sedang login, diurutkan dari yang paling baru.
+**Ini adalah momen pembuktian!** 🎉
 
-### Langkah 23: Logika Menampilkan Riwayat di Controller
-Kita akan menambahkan method baru bernama index ke dalam AttendanceController untuk mengambil data riwayat absensi.
+1. Pastikan Anda login sebagai **karyawan**
+2. Buka halaman **Dashboard**. Anda akan melihat tombol **"Absen Masuk"**
+3. Klik tombol **"Absen Masuk"**:
+   - Halaman akan me-refresh
+   - Pesan sukses akan muncul
+   - Ringkasan di bawah akan terisi
+   - Tombol akan berubah menjadi **"Absen Pulang"**
+4. Tunggu beberapa saat, lalu klik **"Absen Pulang"**:
+   - Halaman akan me-refresh lagi
+   - Pesan sukses muncul
+   - Ringkasan jam pulang terisi
+   - Tombol akan hilang digantikan pesan bahwa absensi telah selesai
+5. Coba refresh halaman, statusnya akan tetap sama
 
-Buka app/Http/Controllers/AttendanceController.php.
-
-Tambahkan method index berikut ini:
-
-```PHP
-// app/Http/Controllers/AttendanceController.php
-
-// ... (use statements) ...
-
-class AttendanceController extends Controller
-{
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        $user = Auth::user();
-
-        // Pastikan user adalah karyawan dan memiliki data employee
-        if ($user->role !== 'karyawan' || !$user->employee) {
-            // Redirect atau tampilkan error jika bukan karyawan
-            return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
-        }
-
-        // Ambil semua data absensi milik karyawan tersebut,
-        // urutkan dari yang terbaru, dan paginasi (15 data per halaman)
-        $attendances = Attendance::where('employee_id', $user->employee->id)
-                                ->latest() // ini sama dengan orderBy('created_at', 'desc')
-                                ->paginate(15);
-
-        // Kirim data ke view
-        return view('attendance.index', compact('attendances'));
-    }
-
-    // ... (method clockIn dan clockOut) ...
-}
-```
-### Langkah 24: Membuat Rute untuk Halaman Riwayat
-Sekarang, kita buat "alamat" atau rute untuk mengakses method index yang baru saja kita buat.
-
-Buka file routes/web.php.
-
-Tambahkan rute GET berikut di dalam grup middleware('auth').
-
-```PHP
-// routes/web.php
-
-// ...
-
-Route::middleware('auth')->group(function () {
-    // ... (rute profile) ...
-
-    // RUTE UNTUK ABSENSI
-    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index'); // <-- TAMBAHKAN INI
-    Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
-    Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
-});
-
-// ...
-```
-### Langkah 25: Membuat View Riwayat Absensi
-Saatnya membuat tampilan untuk halaman riwayat.
-
-Buat folder baru bernama attendance di dalam resources/views.
-
-Di dalam folder attendance tersebut, buat file baru bernama index.blade.php.
-
-Isi file index.blade.php tersebut dengan kode berikut:
-
-```blade
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Riwayat Absensi Saya') }}
-        </h2>
-    </x-slot>
-
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Masuk</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Pulang</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @forelse ($attendances as $attendance)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $loop->iteration + $attendances->firstItem() - 1 }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            {{ \Carbon\Carbon::parse($attendance->date)->isoFormat('dddd, D MMMM Y') }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_in }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_out ?? 'Belum Absen' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @if ($attendance->status == 'Hadir')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    Hadir
-                                                </span>
-                                            @elseif ($attendance->status == 'Terlambat')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                    Terlambat
-                                                </span>
-                                            @elseif ($attendance->status == 'Izin')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                    Izin
-                                                </span>
-                                            @else
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    Alpa
-                                                </span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                            Data riwayat absensi tidak ditemukan.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="mt-4">
-                        {{ $attendances->links() }}
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
-</x-app-layout>
-```
-### Langkah 26: Mengaktifkan Link di Navigasi
-Langkah terakhir adalah "menyalakan" link "Riwayat Absensi" di menu navigasi yang sebelumnya sudah kita siapkan.
-
-Buka file resources/views/layouts/navigation.blade.php.
-
-Cari bagian menu untuk karyawan dan hapus komentar serta ganti href-nya.
-
-Ubah ini (di bagian desktop):
-
-```HTML
-<x-nav-link :href="'#'" {{-- :href="route('attendance.index')" :active="request()->routeIs('attendance.*')" --}}>
-    {{ __('Riwayat Absensi') }}
-</x-nav-link>
-```
-Menjadi:
-
-```HTML
-<x-nav-link :href="route('attendance.index')" :active="request()->routeIs('attendance.*')">
-    {{ __('Riwayat Absensi') }}
-</x-nav-link>
-```
-Dan ubah juga ini (di bagian mobile/responsif):
-
-```HTML
-<x-responsive-nav-link :href="'#'" {{-- :href="route('attendance.index')" :active="request()->routeIs('attendance.*')" --}}>
-    {{ __('Riwayat Absensi') }}
-</x-responsive-nav-link>
-```
-Menjadi:
-
-```HTML
-<x-responsive-nav-link :href="route('attendance.index')" :active="request()->routeIs('attendance.*')">
-    {{ __('Riwayat Absensi') }}
-</x-responsive-nav-link>
-```
-## Uji Coba
-Login sebagai karyawan.
-
-Di menu navigasi atas, link "Riwayat Absensi" sekarang sudah bisa diklik.
-
-Klik link tersebut.
-
-Anda akan diarahkan ke halaman /attendance yang menampilkan tabel berisi catatan absensi yang sudah Anda buat sebelumnya.
 ---
 
-### Next lanjut Part 3 untuk membuat Laporan Absensi harian untuk admin, CRUD (management) Hari Libur
-Untuk informasi lebih lanjut, kunjungi [Panduannya](https://github.com/ahmad-syaifuddin/part3-panduan-absensi-project.git).
+**🎊 Fitur Absensi berhasil dibuat! Lanjut ke Riwayat Absensi?**
+
+Ketik **"lanjut"** untuk melanjutkan ke **Tahap 9: Membuat Halaman Riwayat Absensi**
