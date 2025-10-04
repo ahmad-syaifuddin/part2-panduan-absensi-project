@@ -29,7 +29,7 @@ return new class extends Migration
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
             // Foreign Key ke tabel users
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('employee_id')->constrained()->onDelete('cascade');
 
             $table->date('date');
             $table->time('time_in')->nullable();
