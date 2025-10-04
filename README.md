@@ -675,5 +675,5 @@ Klik link tersebut.
 Anda akan diarahkan ke halaman /attendance yang menampilkan tabel berisi catatan absensi yang sudah Anda buat sebelumnya.
 ---
 
-### Next lanjut Part 3
+### Next lanjut Part 3 untuk membuat Laporan Absensi harian untuk admin, CRUD (management) Hari Libur
 Untuk informasi lebih lanjut, kunjungi [Panduannya](https://github.com/ahmad-syaifuddin/part3-panduan-absensi-project.git).
