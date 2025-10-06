@@ -16,7 +16,7 @@ Dashboard akan kita buat **dinamis**. Tampilannya akan berbeda tergantung role p
 - **Admin** → melihat dashboard ringkasan umum
 - **Karyawan** → melihat panel absensi
 
-Sebelum memulai kita edit dulu isi dari model ``app/Models/Attendance.php`` :
+Sebelum memulai kita edit dulu isi dari model ``app/Models/Attendance.php`` copy semua kode dibawah ini lalu paste kan:
 ```php
 <?php
 
