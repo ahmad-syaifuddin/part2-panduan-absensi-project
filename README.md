@@ -16,6 +16,34 @@ Dashboard akan kita buat **dinamis**. Tampilannya akan berbeda tergantung role p
 - **Admin** → melihat dashboard ringkasan umum
 - **Karyawan** → melihat panel absensi
 
+Sebelum memulai kita edit dulu isi dari model ``app/Models/Attendance.php`` :
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    use HasFactory;
+    
+    protected $fillable = [
+        'employee_id',
+        'date',
+        'time_in',
+        'time_out',
+        'total_hours',
+    ];
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
+}
+```
+
 ---
 
 ## 🔧 Langkah 15: Membuat Controller untuk Dashboard
