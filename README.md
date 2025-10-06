@@ -2,8 +2,8 @@
 
 <p> <b>Visitors Count 👁️</b> </p>
 <img src="https://profile-counter.deno.dev/part2-panduan-absensi-project/count.svg" alt="Profile Counter Repo :: Visitor's Count" />
-
 </div>
+
 # 📋 Part 2 - Panduan Absensi Karyawan
 
 > **🎯 Fokus Bagian Ini:** Membangun logik dan view blade untuk menyimpan data absensi karyawan
