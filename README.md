@@ -35,6 +35,7 @@ class Attendance extends Model
         'time_in',
         'time_out',
         'status',
+        'notes',
     ];
 
     public function employee()
@@ -43,6 +44,64 @@ class Attendance extends Model
     }
 }
 ```
+
+dan sebelum lanjut ada yg perlu kita revisi yaitu kita harus mengubah tipe kolom status dari ENUM menjadi VARCHAR. Ini memberikan fleksibilitas untuk menyimpan teks apa pun, termasuk status gabungan.
+
+Langkah-langkahnya persis seperti solusi yang saya berikan sebelumnya. Mari kita lakukan lagi dengan benar.
+
+### 1. Buat File Migration
+Jika Anda belum membuatnya, jalankan perintah ini di terminal:
+```Bash
+php artisan make:migration change_status_to_varchar_in_attendances_table --table=attendances
+```
+### 2. Isi File Migration
+Buka file migration yang baru dibuat di database/migrations/ dan pastikan isinya seperti ini:
+
+```PHP
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('attendances', function (Blueprint $table) {
+            // Mengubah kolom ENUM menjadi VARCHAR dengan panjang 50
+            $table->string('status', 50)->change();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('attendances', function (Blueprint $table) {
+            // Jika ingin bisa rollback, definisikan kembali ENUM di sini
+            // Namun, untuk kasus ini, kita bisa kosongkan atau kembalikan ke VARCHAR lama
+            $table->string('status', 20)->change(); // Sesuaikan jika perlu
+        });
+    }
+};
+```
+### Poin Kunci:
+$table->string('status', 50): Ini akan mengubah kolom status menjadi tipe VARCHAR dengan panjang 50 karakter.
+->change(): Perintah untuk memodifikasi kolom yang sudah ada.
+
+### 3. Jalankan Migration
+Terakhir, jalankan perintah ini untuk menerapkan perubahan ke database Anda:
+
+```Bash
+php artisan migrate
+```
+## Kesimpulan
+Jadi, kesimpulannya adalah:
+
+Hindari ENUM untuk kasus ini karena Anda butuh fleksibilitas untuk menggabungkan status.
+
+Gunakan VARCHAR sebagai gantinya.
+
+Setelah Anda menjalankan migrasi di atas, kolom status Anda akan siap menerima teks yang lebih panjang dan bervariasi. Coba lagi fitur "Pulang Cepat", dan error tersebut dijamin sudah hilang.
 
 ---
 
@@ -151,52 +210,142 @@ Kita perlu membuat dua file view baru yang dipanggil oleh `DashboardController`.
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
 
-                    {{-- Akan kita tambahkan nanti setelah membuat logika absen --}}
+                    {{-- Menampilkan pesan sukses atau error --}}
+                    @if (session('success'))
+                    <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
+                        role="alert">
+                        <strong class="font-bold">Sukses!</strong>
+                        <span class="block sm:inline">{{ session('success') }}</span>
+                    </div>
+                    @endif
+                    @if (session('error'))
+                    <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                        role="alert">
+                        <strong class="font-bold">Gagal!</strong>
+                        <span class="block sm:inline">{{ session('error') }}</span>
+                    </div>
+                    @endif
 
                     <div class="text-center">
                         <h3 class="text-lg font-medium text-gray-900">
-                            {{ \Carbon\Carbon::now()->isoFormat('dddd, D MMMM Y') }}
+                            {{ \Carbon\Carbon::now('Asia/Makassar')->isoFormat('dddd, D MMMM Y') }}
                         </h3>
+                        <div id="jam-digital" class="text-5xl font-bold text-gray-800 my-4">00:00:00</div>
 
-                        <div id="jam-digital" class="text-5xl font-bold text-gray-800 my-4">
-                            00:00:00
-                        </div>
+                        <div class="mt-6">
+                            {{-- LOGIKA BARU DIMULAI DI SINI --}}
+                            @php
+                            $currentTime = \Carbon\Carbon::now('Asia/Makassar');
+                            $endOfDay = $currentTime->copy()->setTime(14, 0, 0);
+                            $isPastOfficeHours = $currentTime->gt($endOfDay);
+                            @endphp
 
-                        <div class="mt-6 space-x-4">
-                            {{-- Logika tombol akan ditambahkan pada langkah selanjutnya --}}
-
-                            <form method="POST" action="#" class="inline-block">
+                            @if (isset($todaysAttendance))
+                            {{-- JIKA SUDAH ADA DATA ABSENSI HARI INI --}}
+                            @if (in_array($todaysAttendance->status, ['Izin', 'Sakit']))
+                            <div class="bg-yellow-100 text-yellow-800 font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                Anda hari ini tercatat: <strong>{{ $todaysAttendance->status }}</strong>.
+                            </div>
+                            @elseif ($todaysAttendance->status === 'Alpa')
+                            {{-- Jika statusnya Alpa --}}
+                            <div class="bg-red-100 text-red-800 font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                Anda hari ini tercatat: <strong>Alpa</strong>.
+                            </div>
+                            @elseif ($todaysAttendance->time_out === null)
+                            <form method="POST" action="{{ route('attendance.clockout') }}" class="inline-block">
                                 @csrf
-                                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                                    <i class="fas fa-fingerprint mr-2"></i> Absen Masuk
+                                <button type="submit"
+                                    class="bg-red-500 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                    <i class="fas fa-sign-out-alt mr-2"></i> Absen Pulang
                                 </button>
                             </form>
-
-                            <button disabled class="bg-gray-400 cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
-                                <i class="fas fa-sign-out-alt mr-2"></i> Absen Pulang
-                            </button>
+                            @else
+                            <div class="bg-blue-100 text-blue-800 font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                Absensi hari ini telah selesai.
+                            </div>
+                            @endif
+                            @else
+                            {{-- JIKA BELUM ADA DATA ABSENSI HARI INI --}}
+                            @if ($isPastOfficeHours)
+                            {{-- Jika sudah lewat jam 14:00 --}}
+                            <div class="bg-red-100 text-red-800 font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                Waktu untuk melakukan absensi hari ini telah berakhir.
+                            </div>
+                            @else
+                            {{-- Jika masih dalam jam kerja --}}
+                            <div class="space-x-4">
+                                <form method="POST" action="{{ route('attendance.clockin') }}" class="inline-block">
+                                    @csrf
+                                    <button type="submit"
+                                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                        <i class="fas fa-fingerprint mr-2"></i> Absen Masuk
+                                    </button>
+                                </form>
+                                <button onclick="openPermissionModal('Izin')"
+                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                    <i class="fas fa-file-alt mr-2"></i> Ajukan Izin
+                                </button>
+                                <button onclick="openPermissionModal('Sakit')"
+                                    class="bg-orange-500 hover:bg-orange-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                    <i class="fas fa-notes-medical mr-2"></i> Ajukan Sakit
+                                </button>
+                            </div>
+                            @endif
+                            @endif
                         </div>
-
                     </div>
 
+                    {{-- Ringkasan Absensi --}}
                     <div class="mt-10 border-t pt-6">
                         <h4 class="text-md font-semibold mb-4">Ringkasan Hari Ini:</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="bg-blue-100 p-4 rounded-lg">
                                 <p class="text-sm text-blue-700">Jam Masuk</p>
-                                <p class="text-lg font-bold text-blue-900">--:--</p>
+                                <p class="text-lg font-bold text-blue-900">{{ $todaysAttendance?->time_in ?? '--:--' }}
+                                </p>
                             </div>
                             <div class="bg-purple-100 p-4 rounded-lg">
                                 <p class="text-sm text-purple-700">Jam Pulang</p>
-                                <p class="text-lg font-bold text-purple-900">--:--</p>
+                                <p class="text-lg font-bold text-purple-900">{{ $todaysAttendance?->time_out ?? '--:--'
+                                    }}</p>
                             </div>
                             <div class="bg-yellow-100 p-4 rounded-lg">
                                 <p class="text-sm text-yellow-700">Status</p>
-                                <p class="text-lg font-bold text-yellow-900">Belum Absen</p>
+                                <p class="text-lg font-bold text-yellow-900">{{ $todaysAttendance?->status ?? 'Belum
+                                    Absen' }}</p>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    {{-- MODAL UNTUK IZIN/SAKIT --}}
+    <div id="permissionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Form Pengajuan</h3>
+                <div class="mt-2 px-7 py-3">
+                    <form id="permissionForm" method="POST" action="{{ route('attendance.store_permission') }}">
+                        @csrf
+                        <input type="hidden" name="status" id="statusInput">
+                        <textarea name="notes"
+                            class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none" rows="4"
+                            placeholder="Tuliskan keterangan Anda di sini..." required></textarea>
+                        <div class="items-center px-4 py-3">
+                            <button type="submit"
+                                class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">
+                                Kirim Pengajuan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="items-center px-4 py-1">
+                    <button onclick="closePermissionModal()"
+                        class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        Batal
+                    </button>
                 </div>
             </div>
         </div>
@@ -205,14 +354,29 @@ Kita perlu membuat dua file view baru yang dipanggil oleh `DashboardController`.
     @push('scripts')
     <script>
         function updateClock() {
-            const now = new Date();
+            const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
             document.getElementById('jam-digital').textContent = `${hours}:${minutes}:${seconds}`;
         }
         setInterval(updateClock, 1000);
-        updateClock(); // initial call
+        updateClock();
+
+        // --- JavaScript untuk Modal ---
+        const modal = document.getElementById('permissionModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const statusInput = document.getElementById('statusInput');
+
+        function openPermissionModal(status) {
+            modal.classList.remove('hidden');
+            modalTitle.textContent = `Form Pengajuan ${status}`;
+            statusInput.value = status;
+        }
+
+        function closePermissionModal() {
+            modal.classList.add('hidden');
+        }
     </script>
     @endpush
 </x-app-layout>
@@ -296,6 +460,9 @@ Route::middleware('auth')->group(function () {
     // RUTE UNTUK ABSENSI
     Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
     Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+
+    // RUTE BARU UNTUK IZIN/SAKIT
+    Route::post('/attendance/permission', [AttendanceController::class, 'storePermission'])->name('attendance.store_permission');
 });
 // ... Rute admin ...
 ```
@@ -351,7 +518,7 @@ class AttendanceController extends Controller
         }
 
         // 3. Tentukan status (Terlambat atau Hadir)
-        $lateTime = Carbon::createFromTimeString('08:00:00', $timezone);
+        $lateTime = Carbon::createFromTimeString('08:01:00', $timezone);
         $status = 'Hadir';
         if ($now->gt($lateTime)) {
             $status = 'Terlambat';
@@ -373,6 +540,16 @@ class AttendanceController extends Controller
 ---
 
 ## 🔴 Langkah 21: Implementasi Logika Absen Pulang (clockOut)
+Revisi:
+Kita perlu menambahkan logika untuk memeriksa apakah karyawan absen sebelum jam pulang resmi (14:00 WITA). Untuk melakukan ini, kita harus menambahkan kolom baru di attendances table untuk status pulang, atau memodifikasi status yang ada. Namun, untuk simplisitas, kita bisa memodifikasi status yang sudah ada saat clockOut.
+
+Saran Implementasi:
+
+Tambahkan definisi jam pulang resmi.
+
+Saat clockOut, bandingkan waktu saat ini dengan jam pulang resmi.
+
+Update kolom status jika karyawan pulang cepat.
 
 Tambahkan method `clockOut` di dalam `AttendanceController.php`.
 
@@ -398,22 +575,43 @@ public function clockOut(Request $request)
 
     // 1. Cari data absensi masuk hari ini
     $attendance = Attendance::where('employee_id', $user->employee->id)
-                              ->where('date', $today)
+                              ->where('date', '>=', $today)
+                              ->whereNull('time_out') // Pastikan belum absen pulang
                               ->first();
+
 
     // 2. Jika tidak ditemukan data absen masuk
     if (!$attendance) {
         return redirect()->route('dashboard')->with('error', 'Anda belum melakukan absen masuk hari ini.');
     }
 
-    // 3. Jika sudah ada data absen pulang
+    // 3. Jika sudah ada data absen pulang (sebagai double check)
     if ($attendance->time_out) {
         return redirect()->route('dashboard')->with('error', 'Anda sudah melakukan absen pulang hari ini.');
     }
 
-    // 4. Update data absen pulang
+    // --- REVISI DIMULAI DI SINI ---
+    // 4. Tentukan status Pulang Cepat
+    $officialTimeOut = Carbon::createFromTimeString('14:00:00', $timezone);
+
+    // Ambil status jam masuk sebelumnya (Hadir atau Terlambat)
+    $statusMasuk = $attendance->status;
+
+    // Default status pulang adalah status saat masuk
+    $newStatus = $statusMasuk;
+
+    if ($now->lt($officialTimeOut)) {
+        // Gabungkan status masuk dengan status pulang cepat
+        // Contoh: "Hadir, Pulang Cepat" atau "Terlambat, Pulang Cepat"
+        $newStatus .= ', Pulang Cepat';
+    }
+    // --- REVISI SELESAI ---
+
+
+    // 5. Update data absen pulang dengan status baru
     $attendance->update([
         'time_out' => $time,
+        'status' => $newStatus, // Gunakan status yang sudah diperbarui
     ]);
 
     return redirect()->route('dashboard')->with('success', 'Berhasil melakukan absen pulang. Selamat beristirahat!');
@@ -559,6 +757,229 @@ Ganti seluruh isi `resources/views/dashboard-karyawan.blade.php` dengan kode yan
 </x-app-layout>
 ```
 
+buat rute baru di // routes/web.php :
+
+```php
+// ... rute lainnya
+
+Route::middleware('auth')->group(function () {
+    // ... (rute profile & absensi sebelumnya) ...
+
+    // RUTE UNTUK ABSENSI
+    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
+    Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+    
+    // RUTE BARU UNTUK IZIN/SAKIT
+    Route::post('/attendance/permission', [AttendanceController::class, 'storePermission'])->name('attendance.store_permission');
+});
+```
+tambahkan method controller nya di app/Http/Controllers/AttendanceController.php dan tambah kan method baru bernama storePermission:
+```php
+// app/Http/Controllers/AttendanceController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Attendance;
+use Carbon\Carbon;
+
+class AttendanceController extends Controller
+{
+    // ... (method index, clockIn, clockOut) ...
+
+
+    /**
+     * Store a newly created resource in storage for permission (Izin/Sakit).
+     */
+    public function storePermission(Request $request)
+    {
+        // 1. Validasi input
+        $request->validate([
+            'status' => 'required|in:Izin,Sakit',
+            'notes'  => 'required|string|max:255',
+        ]);
+
+        $user = Auth::user();
+        if (!$user->employee) {
+            return redirect()->route('dashboard')->with('error', 'Data karyawan tidak ditemukan.');
+        }
+
+        $timezone = 'Asia/Makassar';
+        $today = Carbon::now($timezone)->format('Y-m-d');
+
+        // 2. Cek apakah sudah ada absensi hari ini (masuk/pulang/izin/sakit)
+        $existingAttendance = Attendance::where('employee_id', $user->employee->id)
+                                        ->where('date', $today)
+                                        ->first();
+
+        if ($existingAttendance) {
+            return redirect()->route('dashboard')->with('error', 'Anda sudah memiliki catatan absensi untuk hari ini.');
+        }
+
+        // 3. Simpan data izin/sakit
+        Attendance::create([
+            'employee_id' => $user->employee->id,
+            'date' => $today,
+            'status' => $request->status,
+            'notes' => $request->notes,
+            'time_in' => null, // Tidak ada jam masuk
+            'time_out' => null, // Tidak ada jam pulang
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Pengajuan ' . $request->status . ' berhasil disimpan.');
+    }
+}
+```
+
+Kita akan mengimplementasikan fungsionalitas ini dengan membuat sebuah tombol khusus di dashboard admin. Saat tombol ini diklik, sistem akan menjalankan skrip untuk menandai semua karyawan yang belum absen hari itu sebagai "Alpa".
+
+Mari kita mulai.
+
+## Langkah 1: Buat Rute Khusus Admin
+Pertama, kita definisikan "alamat" atau rute yang akan dituju saat tombol di-klik. Rute ini harus aman dan hanya bisa diakses oleh admin.
+
+Buka file routes/web.php dan tambahkan rute berikut. Tempatkan di dalam grup rute admin Anda jika ada, atau buat yang baru.
+
+```PHP
+// routes/web.php
+use App\Http\Controllers\AttendanceController;
+
+// ... rute lainnya
+
+// Pastikan rute ini dilindungi oleh middleware untuk admin
+Route::middleware(['auth'])->group(function () {
+    // ... rute-rute yang sudah ada ...
+    
+    // RUTE BARU UNTUK ADMIN: Menandai karyawan yang alpa
+    // Kita tambahkan middleware 'role:admin' jika Anda sudah membuatnya
+    // Jika belum, logika di controller akan memvalidasi role
+    Route::post('/admin/attendance/mark-alpa', [AttendanceController::class, 'markAlpa'])
+            ->name('admin.attendance.mark_alpa');
+});
+```
+Catatan: Idealnya, rute ini dilindungi oleh middleware role admin. Jika Anda belum membuatnya, logika di dalam controller yang akan kita buat selanjutnya akan tetap memeriksa role pengguna.
+
+## Langkah 2: Tambahkan Method di Controller
+Sekarang kita buat logikanya. Kita akan menambahkan method markAlpa ke dalam AttendanceController. Logikanya hampir sama dengan command yang kita bahas sebelumnya.
+
+Buka file app/Http/Controllers/AttendanceController.php dan tambahkan method baru di bawah ini:
+
+```PHP
+// app/Http/Controllers/AttendanceController.php
+
+use App\Models\Employee; // Pastikan ini sudah ada di atas
+
+class AttendanceController extends Controller
+{
+    // ... (method index, clockIn, clockOut, storePermission) ...
+
+
+    /**
+     * Mark absent employees as 'Alpa' for today.
+     * This action is triggered manually by an admin.
+     */
+    public function markAlpa(Request $request)
+    {
+        // 1. Pastikan hanya admin yang bisa mengakses
+        if (Auth::user()->role !== 'admin') {
+            return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki hak akses.');
+        }
+
+        $timezone = 'Asia/Makassar';
+        $today = Carbon::now($timezone)->format('Y-m-d');
+        $now = Carbon::now($timezone);
+
+        // 2. Jangan jalankan jika hari libur (Sabtu/Minggu)
+        if ($now->isWeekend()) {
+            return redirect()->route('dashboard')->with('info', 'Tidak ada tindakan yang diambil pada hari libur.');
+        }
+
+        // 3. Dapatkan semua ID karyawan yang statusnya 'aktif'
+        $activeEmployeeIds = Employee::where('status', 'aktif')->pluck('id');
+
+        // 4. Dapatkan ID karyawan yang sudah punya catatan absensi hari ini
+        $attendedEmployeeIds = Attendance::where('date', $today)->pluck('employee_id');
+
+        // 5. Cari ID karyawan yang aktif tapi belum absen (dianggap Alpa)
+        $absentEmployeeIds = $activeEmployeeIds->diff($attendedEmployeeIds);
+
+        if ($absentEmployeeIds->isEmpty()) {
+            return redirect()->route('dashboard')->with('info', 'Semua karyawan aktif sudah memiliki catatan absensi hari ini.');
+        }
+
+        // 6. Buat catatan 'Alpa' untuk setiap karyawan yang absen
+        foreach ($absentEmployeeIds as $employeeId) {
+            Attendance::create([
+                'employee_id' => $employeeId,
+                'date' => $today,
+                'status' => 'Alpa',
+                'notes' => 'Tidak melakukan absensi masuk hingga akhir hari kerja.',
+            ]);
+        }
+
+        return redirect()->route('dashboard')->with('success', $absentEmployeeIds->count() . ' karyawan telah ditandai Alpa.');
+    }
+}
+```
+
+### update view dashboard-admin.blade.php :
+```blade
+{{-- Tambahkan blok PHP untuk memeriksa waktu --}}
+@php
+$currentTime = \Carbon\Carbon::now('Asia/Makassar');
+$endOfDay = $currentTime->copy()->setTime(14, 0, 0);
+$isPastOfficeHours = $currentTime->gt($endOfDay);
+@endphp
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Admin Dashboard') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-12">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
+                    {{ __("You're logged in as Admin!") }}
+
+                    {{-- Kotak Aksi Admin --}}
+                    <div class="mt-8 border-t pt-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Aksi Cepat</h3>
+                        {{-- Tampilkan tombol hanya jika sudah lewat jam 14:00 --}}
+                        @if ($isPastOfficeHours)
+                        <form action="{{ route('admin.attendance.mark_alpa') }}" method="POST"
+                            onsubmit="return confirm('Apakah Anda yakin ingin menandai semua karyawan yang belum absen sebagai ALPA untuk hari ini? Tindakan ini tidak bisa dibatalkan.');">
+                            @csrf
+                            <button type="submit"
+                                class="bg-red-600 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300">
+                                <i class="fas fa-user-times mr-2"></i>
+                                Tandai Karyawan yg Alpa Hari Ini
+                            </button>
+                        </form>
+                        <p class="text-sm text-gray-500 mt-2">
+                            * Klik tombol ini untuk secara otomatis mengisi status "Alpa" bagi karyawan yang tidak
+                            melakukan absensi sama sekali hari ini.
+                        </p>
+                        @else
+                        {{-- Tampilkan pesan jika belum waktunya --}}
+                        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
+                            <p class="font-bold">Informasi</p>
+                            <p>Tombol untuk memproses absensi "Alpa" akan muncul di sini setelah jam kerja berakhir
+                                (pukul 14:00 WITA).</p>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>
+```
+
 ---
 
 ## ✅ Uji Coba
@@ -691,48 +1112,80 @@ Saatnya membuat tampilan untuk halaman riwayat.
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Masuk</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Pulang</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        No</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Tanggal</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Jam Masuk</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Jam Pulang</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Catatan</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @forelse ($attendances as $attendance)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $loop->iteration + $attendances->firstItem() - 1 }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            {{ \Carbon\Carbon::parse($attendance->date)->isoFormat('dddd, D MMMM Y') }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_in }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_out ?? 'Belum Absen' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @if ($attendance->status == 'Hadir')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    Hadir
-                                                </span>
-                                            @elseif ($attendance->status == 'Terlambat')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                    Terlambat
-                                                </span>
-                                            @elseif ($attendance->status == 'Izin')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                    Izin
-                                                </span>
-                                            @else
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    Alpa
-                                                </span>
-                                            @endif
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ $loop->iteration + $attendances->firstItem() - 1 }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->date }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_in }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ $attendance->time_out }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{-- Cek status utama (Hadir, Terlambat, Izin, Alpa) --}}
+                                        @if (str_contains($attendance->status, 'Hadir'))
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Hadir
+                                        </span>
+                                        @elseif (str_contains($attendance->status, 'Terlambat'))
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            Terlambat
+                                        </span>
+                                        @elseif (str_contains($attendance->status, 'Izin'))
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            Izin
+                                        </span>
+                                        @elseif (str_contains($attendance->status, 'Sakit'))
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-cyan-100 text-cyan-800">
+                                            Sakit
+                                        </span>
+                                        @else
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                            {{-- Menampilkan status 'Alpa' atau status lain yang tidak terdefinisi --}}
+                                            {{ $attendance->status }}
+                                        </span>
+                                        @endif
+
+                                        {{-- Cek status tambahan 'Pulang Cepat' secara terpisah --}}
+                                        @if (str_contains($attendance->status, 'Pulang Cepat'))
+                                        <span
+                                            class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                            Pulang Cepat
+                                        </span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $attendance->notes }}</td>
+                                </tr>
                                 @empty
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                            Data riwayat absensi tidak ditemukan.
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td colspan="6"
+                                        class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                        Data riwayat absensi tidak ditemukan.
+                                    </td>
+                                </tr>
                                 @endforelse
                             </tbody>
                         </table>
