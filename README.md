@@ -1118,7 +1118,7 @@ Buka `routes/web.php` dan tambahin rute ini:
 
 // ... rute lainnya
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'role:admin'])->group(function () {
     // ... rute yang sudah ada ...
     
     // RUTE KHUSUS ADMIN: Menandai karyawan yang alpa
