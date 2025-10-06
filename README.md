@@ -273,6 +273,10 @@ Buat file baru di `resources/views/` bernama `dashboard-karyawan.blade.php` deng
                             </div>
                             @else
                             <div class="space-x-4">
+                                <button onclick="openPermissionModal('Izin')"
+                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
+                                    <i class="fas fa-file-alt mr-2"></i> Ajukan Izin
+                                </button>
                                 <form method="POST" action="{{ route('attendance.clockin') }}" class="inline-block">
                                     @csrf
                                     <button type="submit"
@@ -280,10 +284,6 @@ Buat file baru di `resources/views/` bernama `dashboard-karyawan.blade.php` deng
                                         <i class="fas fa-fingerprint mr-2"></i> Absen Masuk
                                     </button>
                                 </form>
-                                <button onclick="openPermissionModal('Izin')"
-                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
-                                    <i class="fas fa-file-alt mr-2"></i> Ajukan Izin
-                                </button>
                                 <button onclick="openPermissionModal('Sakit')"
                                     class="bg-orange-500 hover:bg-orange-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg">
                                     <i class="fas fa-notes-medical mr-2"></i> Ajukan Sakit
